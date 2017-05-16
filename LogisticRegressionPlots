@@ -1,0 +1,184 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+import matplotlib.animation as animation
+
+
+class SubplotAnimation(animation.TimedAnimation):
+    def __init__(self):
+        # animation step size and refresh rate: Adjust so this runs smoothly on your local machine
+        # lower anim_speed = faster refresh rate
+        # lowering speed below 40 or step_size below 0.2 may cause issues
+        self.anim_speed = 100
+        self.coefficient_change_step_size = 0.3
+        scale = 0.3
+        self.coefficient_change_small_step_size = scale * self.coefficient_change_step_size
+
+        fig = plt.figure(figsize=plt.figaspect(0.4))
+        fig.suptitle("Logistic Regression Analysis")
+
+        self.ax1 = fig.add_subplot(1, 4, 1)
+        self.ax2 = fig.add_subplot(1, 4, 2)
+        self.ax3 = fig.add_subplot(1, 4, 3)
+        self.ax4 = fig.add_subplot(1, 4, 4)
+
+        # t controls the time animation stepping behavior
+        self.t = np.linspace(0, 80, 400)
+        # X is the (1 x n) predictor matrix
+        self.x = np.arange(-5.5, 5.5, 0.1)
+        # Y is the (1 x n) response matrix
+        self.y = None
+
+        # this controls the 'height' of the vertical bars in each subplot
+        self.y_span = np.arange(0, 1.1, 0.1)
+
+        # establish variables to 'bounce' the value of the beta coefficients between the threshold
+        self.beta0_dir = True
+        self.beta0_dir2 = True
+        self.beta1_dir = True
+        self.beta0_offset = 0
+        self.beta1_offset = 0
+        self.beta0_offset2 = 0
+        self.coefficient_change_threshold = 5.5
+
+        # Setup the first subplot.
+        # set the subplot axis labels
+        self.ax1.set_xlabel('x')
+        self.ax1.set_ylabel('P(Y=1)')
+        self.line1 = Line2D([], [], color='red', linewidth=2)
+        # Create the horizontal line indicating the value of the Beta coefficient in this graph
+        self.line1a = Line2D([], [], color='green', linestyle='dashed', linewidth=2, label=r'$\beta_0$')
+        # Add the Beta value line to the subplot
+        self.ax1.add_line(self.line1a)
+        # Add the logistic regression curve to the subplot
+        self.ax1.add_line(self.line1)
+        # set the x-axis limits
+        self.ax1.set_xlim(-6, 6)
+        # set the y-axis limits
+        self.ax1.set_ylim(-0.01, 1.01)
+        # add a legend to the subplot
+        self.ax1.legend(prop={'size': 10}, loc=1, framealpha=0.25)
+
+        # Setup the second subplot.
+        self.ax2.set_xlabel('X')
+        self.line2 = Line2D([], [], color='red', linewidth=2)
+        self.line2a = Line2D([], [], color='blue', linestyle='dashed', linewidth=2, label=r'$\beta_1$')
+        self.ax2.add_line(self.line2a)
+        self.ax2.add_line(self.line2)
+        self.ax2.set_xlim(-6, 6)
+        self.ax2.set_ylim(-0.01, 1.01)
+        self.ax2.legend(prop={'size': 10}, loc=1, framealpha=0.25)
+
+        # Setup the third subplot.
+        self.ax3.set_xlabel('X')
+        self.line3 = Line2D([], [], color='red', linewidth=2)
+        self.line3a = Line2D([], [], color='green', linewidth=3, label=r'$\beta_0$')
+        self.line3b = Line2D([], [], color='blue', linestyle='dashed', linewidth=2, label=r'$\beta_1$')
+        self.ax3.add_line(self.line3)
+        self.ax3.add_line(self.line3a)
+        self.ax3.add_line(self.line3b)
+        self.ax3.set_xlim(-6, 6)
+        self.ax3.set_ylim(-0.01, 1.01)
+        self.ax3.legend(prop={'size': 10}, loc=1, framealpha=0.25)
+
+        # Setup the fourth subplot.
+        self.ax4.set_xlabel('X')
+        self.line4 = Line2D([], [], color='red', linewidth=2)
+        self.line4a = Line2D([], [], color='green', linestyle='dashed', linewidth=2, label=str(scale) + r'*$\beta_0$')
+        self.line4b = Line2D([], [], color='blue', linestyle='dashed', linewidth=2, label=r'$-\beta_1$')
+        self.ax4.add_line(self.line4)
+        self.ax4.add_line(self.line4a)
+        self.ax4.add_line(self.line4b)
+        self.ax4.set_xlim(-6, 6)
+        self.ax4.set_ylim(-0.01, 1.01)
+        self.ax4.legend(prop={'size': 10}, loc=1, framealpha=0.4)
+
+        # Trigger the animation API.
+        # NOTE: to turn on blit and improve performance, make sure to remove the subplot titles.
+        # Also, this will probably cause the vertical tracking lines to not update.
+        animation.TimedAnimation.__init__(self, fig, interval=self.anim_speed, blit=False)
+
+    def logistic(self, x, beta0, beta1):
+        numerator = np.exp((beta0 + (beta1 * x)))
+        denominator = 1 + np.exp((beta0 + (beta1 * x)))
+        prob_y = numerator / denominator
+        return prob_y
+
+    def prob_response(self, x, beta0, beta1):
+        y = np.zeros((x.shape[0]))
+        for i, row in enumerate(x):
+            y[i] = self.logistic(x[i], beta0, beta1)
+        return y
+
+    def _draw_frame(self, framedata):
+        # this series of "If" statements create the 'bouncing' coefficient value behavior
+        if self.beta0_dir:
+            self.beta0_offset += self.coefficient_change_step_size
+            if self.beta0_offset > self.coefficient_change_threshold:
+                self.beta0_dir = False
+        else:
+            self.beta0_offset -= self.coefficient_change_step_size
+            if self.beta0_offset < -self.coefficient_change_threshold:
+                self.beta0_dir = True
+
+        if self.beta1_dir:
+            self.beta1_offset += self.coefficient_change_step_size
+            if self.beta1_offset > self.coefficient_change_threshold:
+                self.beta1_dir = False
+        else:
+            self.beta1_offset -= self.coefficient_change_step_size
+            if self.beta1_offset < -self.coefficient_change_threshold:
+                self.beta1_dir = True
+
+        if self.beta0_dir2:
+            self.beta0_offset2 += self.coefficient_change_small_step_size
+            if self.beta0_offset2 > self.coefficient_change_threshold:
+                self.beta0_dir2 = False
+        else:
+            self.beta0_offset2 -= self.coefficient_change_small_step_size
+            if self.beta0_offset2 < -self.coefficient_change_threshold:
+                self.beta0_dir2 = True
+
+        # update the first plot at this time step
+        # re-evaluate the response matrix for the new coefficient values
+        line1_y = self.prob_response(self.x, self.beta0_offset, 1)
+        # update the logistic regression curve for this subplot
+        self.line1.set_data(self.x, line1_y)
+        # update the subplot title
+        self.ax1.set_title(r"$\beta_1$=1 | $\beta_0$=" + str(round(self.beta0_offset, 1)))
+        # update the coefficient value tracking line in this subplot
+        self.line1a.set_data(self.beta0_offset, self.y_span)
+
+        # update the second plot at this time step
+        line2_y = self.prob_response(self.x, 1, self.beta1_offset)
+        self.line2.set_data(self.x, line2_y)
+        self.ax2.set_title(r"$\beta_0$=1 | $\beta_1$=" + str(round(self.beta1_offset, 1)))
+        self.line2a.set_data(self.beta1_offset, self.y_span)
+
+        # update the third plot
+        line3_y = self.prob_response(self.x, self.beta0_offset, self.beta1_offset)
+        self.line3.set_data(self.x, line3_y)
+        # self.ax3.set_title("Beta 0 = " + str(self.beta0_offset) + ", Beta 1 = " + str(self.beta1_offset))
+        self.line3a.set_data(self.beta0_offset, self.y_span)
+        self.line3b.set_data(self.beta1_offset, self.y_span)
+
+        # update the fourth plot
+        line4_y = self.prob_response(self.x, self.beta0_offset2, -self.beta1_offset)
+        self.line4.set_data(self.x, line4_y)
+        # self.ax4.set_title("Beta 0 = " + str(self.beta0_offset2) + ", Beta 1 = " + str(-self.beta1_offset))
+        self.line4a.set_data(self.beta0_offset2, self.y_span)
+        self.line4b.set_data(-self.beta1_offset, self.y_span)
+
+        self._drawn_artists = [self.line1, self.line2, self.line3, self.line4]
+
+    def new_frame_seq(self):
+        return iter(range(self.t.size))
+
+    def _init_draw(self):
+        lines = [self.line1, self.line2, self.line3, self.line4]
+        for l in lines:
+            l.set_data([], [])
+
+ani = SubplotAnimation()
+# ani.save('test_sub.mp4')
+plt.show()
